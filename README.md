@@ -7,7 +7,7 @@
   对于required属性如果为true会将表头设置为红色。</br>
 ## 导入 </br>
 
-   excel表头中的列名对应类属性ExcelName中的value值，进行动态赋值,如果需要进行同导入相反的逻辑，需要通过deExpression的代码进行反解析。
+   excel表头中的列名对应类属性ExcelName中的value值，进行动态赋值,如果需要进行同导入相反的逻辑，需要通过deExpression的代码进行反解析。导入时候,required为true的会进行非空校验处理。
    
    
 ### example
