@@ -43,11 +43,11 @@ public final class ExcelUtils {
     }
 
     public static void export(List<? extends Object> list, HttpServletResponse response, Class<? extends Object> clzz, String name) {
-        SXSSFWorkbook workbook ;
-        if (list.size()>0){
-            workbook= new SXSSFWorkbook(list.size());
-        }else {
-            workbook= new SXSSFWorkbook();
+        SXSSFWorkbook workbook;
+        if (!CollectionUtils.isEmpty(list)) {
+            workbook = new SXSSFWorkbook(list.size());
+        } else {
+            workbook = new SXSSFWorkbook();
         }
         SXSSFSheet sheet = workbook.createSheet(name + ".xls");
         AtomicInteger rowIndex = new AtomicInteger(0);
@@ -61,33 +61,38 @@ public final class ExcelUtils {
 //            }
             SXSSFRow row = sheet.createRow(rowIndex.incrementAndGet());
             int columnIndex = 0;
-            Field[] fields = o.getClass().getDeclaredFields();
-            for (int i = 0; i < fields.length; i++) {
-                Field field = fields[i];
-                ExcelName annotation = field.getAnnotation(ExcelName.class);
-                if (null != annotation) {
-                    SXSSFCell cell = row.createCell(columnIndex);
-                    ++columnIndex;
-                    try {
-                        String fieldName = field.getName();
-                        PropertyDescriptor propertyDescriptor = new PropertyDescriptor(fieldName, o.getClass());
-                        Method readMethod = propertyDescriptor.getReadMethod();
-                        Object invoke = readMethod.invoke(o);
-                        String expression = annotation.expression();
-                        if (StringUtils.hasText(expression)) {
-                            if (expression.startsWith("method")) {
-                                invoke = eval(expression, fieldName, invoke, clzz);
-                            } else {
-                                invoke = eval(expression, fieldName, invoke);
+            for (Class<?> clss = clzz; clss != Object.class; clss = clss.getSuperclass()) {
+                Field[] fields = clss.getDeclaredFields();
+                for (int i = 0; i < fields.length; i++) {
+                    Field field = fields[i];
+                    ExcelName annotation = field.getAnnotation(ExcelName.class);
+                    if (null != annotation) {
+                        SXSSFCell cell = row.createCell(columnIndex);
+                        ++columnIndex;
+                        try {
+                            String fieldName = field.getName();
+                            PropertyDescriptor propertyDescriptor = new PropertyDescriptor(fieldName, o.getClass());
+                            Method readMethod = propertyDescriptor.getReadMethod();
+                            Object invoke = readMethod.invoke(o);
+                            String expression = annotation.expression();
+                            if (StringUtils.hasText(expression)) {
+                                if (expression.startsWith("method")) {
+                                    invoke = eval(expression, fieldName, invoke, clzz);
+                                } else {
+                                    invoke = eval(expression, fieldName, invoke);
+                                }
                             }
+                            if (null != invoke) {
+                                if (invoke instanceof LocalDateTime){
+                                    invoke = DateTimeUtils.date2Str((LocalDateTime) invoke);
+                                }
+                                cell.setCellValue(invoke.toString());
+                            } else {
+                                cell.setCellValue("");
+                            }
+                        } catch (IntrospectionException | IllegalAccessException | InvocationTargetException e) {
+                            e.printStackTrace();
                         }
-                        if (null != invoke) {
-                            cell.setCellValue(invoke.toString());
-                        } else {
-                            cell.setCellValue("");
-                        }
-                    } catch (IntrospectionException | IllegalAccessException | InvocationTargetException e) {
-                        e.printStackTrace();
                     }
                 }
             }
@@ -122,27 +127,30 @@ public final class ExcelUtils {
     private static void createHeader(SXSSFWorkbook workbook, SXSSFSheet sheet, Class first) {
         sheet.trackAllColumnsForAutoSizing();
         SXSSFRow head = sheet.createRow(0);
-        Field[] declaredFields = first.getDeclaredFields();
         // 设置单元格为文本
         CellStyle cellStyle = workbook.createCellStyle();
         DataFormat dataFormat = workbook.createDataFormat();
         cellStyle.setDataFormat(dataFormat.getFormat("@"));
         int headerSize = 0;
-        for (int i = 0; i < declaredFields.length; i++) {
-            Field declaredField = declaredFields[i];
-            ExcelName excelName = declaredField.getAnnotation(ExcelName.class);
-            if (null != excelName) {
-                String value = excelName.value();
-                SXSSFCell cell = head.createCell(headerSize);
-                // 设置列宽
-                sheet.autoSizeColumn(headerSize);
-                cell.setCellValue(value);
-                setCellStyle(cell, workbook, excelName.required(),cellStyle);
-                sheet.setColumnWidth(i, sheet.getColumnWidth(i) * 17 / 10);
-                ++headerSize;
-            }
+        for (Class<?> clzz = first; clzz != Object.class; clzz = clzz.getSuperclass()) {
+            Field[] declaredFields = clzz.getDeclaredFields();
+            for (int i = 0; i < declaredFields.length; i++) {
+                Field declaredField = declaredFields[i];
+                ExcelName excelName = declaredField.getAnnotation(ExcelName.class);
+                if (null != excelName) {
+                    String value = excelName.value();
+                    SXSSFCell cell = head.createCell(headerSize);
+                    // 设置列宽
+                    sheet.autoSizeColumn(headerSize);
+                    cell.setCellValue(value);
+                    setCellStyle(cell, workbook, excelName.required(), cellStyle);
+                    sheet.setColumnWidth(i, sheet.getColumnWidth(i) * 17 / 10);
+                    ++headerSize;
+                }
 
+            }
         }
+
     }
 
     public static String encodeDownloadFileName(HttpServletRequest request, String filename) {
@@ -166,7 +174,8 @@ public final class ExcelUtils {
 
     private static void pwrite(HttpServletResponse response, Workbook workbook, String fileName) {
         response.setCharacterEncoding("UTF-8");
-        response.setContentType("application/vnd.ms-excel;charset=UTF-8");
+//        response.setContentType("application/vnd.ms-excel;charset=UTF-8");
+        response.setContentType("multipart/form-data");
         try {
             response.addHeader("Content-Disposition", "attachment; filename=" + new String(fileName.getBytes(StandardCharsets.UTF_8), StandardCharsets.ISO_8859_1) + ".xls");
         } catch (Exception e) {
@@ -264,7 +273,7 @@ public final class ExcelUtils {
                                         }
                                     } else {
                                         Object o = beanWrapper.convertForProperty(cellValue, field.getName());
-                                        field.set(t,o);
+                                        field.set(t, o);
                                     }
                                 } catch (IllegalAccessException e) {
                                     e.printStackTrace();
@@ -290,6 +299,5 @@ public final class ExcelUtils {
         }
         return list;
     }
-
 
 }
