@@ -18,6 +18,7 @@ import org.apache.poi.xssf.usermodel.XSSFSheet;
 import org.apache.poi.xssf.usermodel.XSSFWorkbook;
 import org.springframework.beans.BeanUtils;
 import org.springframework.beans.BeanWrapperImpl;
+import org.springframework.util.CollectionUtils;
 import org.springframework.util.StringUtils;
 
 import javax.servlet.http.HttpServletRequest;
@@ -31,8 +32,12 @@ import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.*;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 /**
  * @Author: jay
@@ -41,6 +46,9 @@ public final class ExcelUtils {
 
     private ExcelUtils() {
     }
+
+    private static final Pattern method_rgex = Pattern.compile("^method\\{(.*?)}");
+
 
     public static void export(List<? extends Object> list, HttpServletResponse response, Class<? extends Object> clzz, String name) {
         SXSSFWorkbook workbook;
@@ -76,15 +84,16 @@ public final class ExcelUtils {
                             Object invoke = readMethod.invoke(o);
                             String expression = annotation.expression();
                             if (StringUtils.hasText(expression)) {
-                                if (expression.startsWith("method")) {
-                                    invoke = eval(expression, fieldName, invoke, clzz);
+                                Matcher matcher = method_rgex.matcher(expression);
+                                if (matcher.find()) {
+                                    invoke = eval(matcher.group(1), fieldName, invoke, clzz);
                                 } else {
                                     invoke = eval(expression, fieldName, invoke);
                                 }
                             }
                             if (null != invoke) {
-                                if (invoke instanceof LocalDateTime){
-                                    invoke = DateTimeUtils.date2Str((LocalDateTime) invoke);
+                                if (invoke instanceof LocalDateTime) {
+                                    invoke = LocalDateTime.parse((String) invoke, DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"));
                                 }
                                 cell.setCellValue(invoke.toString());
                             } else {
@@ -100,8 +109,8 @@ public final class ExcelUtils {
         pwrite(response, workbook, name);
     }
 
+
     private static Object eval(String expression, String name, Object value, Class<?> clzz) {
-        expression = expression.replace("method", "").replace("{", "").replace("}", "");
         JexlEngine jexl = new JexlEngine();
         Expression e = jexl.createExpression(expression);
         JexlContext jc = new MapContext();
@@ -263,8 +272,9 @@ public final class ExcelUtils {
                                     String s = annotation.deExpression();
                                     if (StringUtils.hasText(s)) {
                                         Object eval;
-                                        if (s.startsWith("method")) {
-                                            eval = eval(s, field.getName(), cellValue, clzz);
+                                        Matcher matcher = method_rgex.matcher(s);
+                                        if (matcher.find()) {
+                                            eval = eval(matcher.group(1), field.getName(), cellValue, clzz);
                                         } else {
                                             eval = eval(s, field.getName(), cellValue);
                                         }
