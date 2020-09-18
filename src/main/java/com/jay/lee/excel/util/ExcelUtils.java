@@ -51,6 +51,28 @@ public final class ExcelUtils {
     private static final Pattern method_rgex = Pattern.compile("^method\\{(.*?)}");
 
 
+    public static void buildMultiSheet(HttpServletResponse response, String name, List<? extends Object>... list) {
+        SXSSFWorkbook workbook = new SXSSFWorkbook();
+        SXSSFSheet sheet = null;
+        SXSSFRow row = null;
+        int pageIndex = 0;
+        for (List<?> item : list) {
+            int pageRowNo = 0;
+            sheet = workbook.createSheet(String.format("%s%s%s%s", name, "-", pageIndex, ".xls"));
+            sheet = workbook.getSheetAt(pageIndex);
+            for (int i = 0; i < item.size(); i++) {
+                int columnIndex = 0;
+                Object o = item.get(i);
+                row = sheet.createRow(++pageRowNo);
+                createHeader(sheet, o.getClass(), workbook);
+                buildCell(o.getClass(), row, o, columnIndex);
+            }
+            ++pageIndex;
+        }
+        pwrite(response, workbook, name);
+    }
+
+
     public static void exportBigData(List<? extends Object> list, HttpServletResponse response, Class<? extends Object> clzz, String name) {
         SXSSFWorkbook workbook = new SXSSFWorkbook(10000);
         SXSSFSheet sheet = null;

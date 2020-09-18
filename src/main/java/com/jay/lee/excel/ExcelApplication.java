@@ -1,5 +1,6 @@
 package com.jay.lee.excel;
 
+import com.jay.lee.excel.entity.Other;
 import com.jay.lee.excel.entity.User;
 import com.jay.lee.excel.util.ExcelUtils;
 import com.jay.lee.excel.util.JsonUtils;
@@ -17,7 +18,7 @@ import springfox.documentation.swagger2.annotations.EnableSwagger2;
 import javax.servlet.http.HttpServletResponse;
 import java.io.IOException;
 import java.io.InputStream;
-import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 
 @SpringBootApplication
@@ -32,8 +33,8 @@ public class ExcelApplication {
 
     @ApiOperation("导出")
     @GetMapping("/export")
-    public void testExport(HttpServletResponse response){
-        List<User> list = new ArrayList<>();
+    public void testExport(HttpServletResponse response) {
+//        List<User> list = new ArrayList<>();
 //        User jay = User.builder()
 //                .age(18)
 //                .birthDay(LocalDateTime.now())
@@ -43,12 +44,13 @@ public class ExcelApplication {
 //                .state(0)
 //                .build();
 //        list.add(jay);
-        ExcelUtils.export(list,response,User.class,"测试");
+//        ExcelUtils.export(list,response,User.class,"测试");
+        ExcelUtils.buildMultiSheet(response, "test", Arrays.asList(new User()), Arrays.asList(new Other()));
     }
 
     @PostMapping("/upload")
     @ApiOperation("上传")
-    public String upload(@RequestParam("file")MultipartFile file){
+    public String upload(@RequestParam("file") MultipartFile file) {
         InputStream inputStream = null;
         try {
             inputStream = file.getInputStream();
