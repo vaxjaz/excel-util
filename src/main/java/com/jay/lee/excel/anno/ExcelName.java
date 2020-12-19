@@ -14,8 +14,24 @@ public @interface ExcelName {
 
     boolean required() default false;
 
+    int validLen() default -1;
+
+    /**
+     * 动态导出解析表达式
+     * example:
+     * method{this.functionName(filedName)}
+     * functionName 在当前类中实现对应逻辑方法
+     *
+     * @return
+     */
     String expression() default "";
 
+    /**
+     * 导入动态反解析表达式
+     * 使用方法同 expression
+     *
+     * @return
+     */
     String deExpression() default "";
 
 

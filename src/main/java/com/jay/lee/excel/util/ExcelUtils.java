@@ -258,6 +258,49 @@ public final class ExcelUtils {
         }
     }
 
+    private static <T> void convertSheet(XSSFSheet sheetAt, Class<T> clzz, List<T> list) {
+        short cellNum = sheetAt.getRow(0).getLastCellNum();
+        Map<Integer, String> header = new HashMap<>(9);
+        AtomicInteger integer = new AtomicInteger();
+        for (int i = 0; i <= sheetAt.getLastRowNum(); i++) {
+            XSSFRow row = sheetAt.getRow(i);
+            if (null == row || checkRowIsEmpty(row)) {
+                break;
+            }
+            integer.incrementAndGet();
+            T t = BeanUtils.instantiateClass(clzz);
+            BeanWrapperImpl beanWrapper = new BeanWrapperImpl(t);
+            for (short j = 0; j < cellNum; j++) {
+                String cellValue = Optional.ofNullable(row.getCell(j))
+                        .map(ExcelUtils::getCellValue)
+                        .orElse(null);
+                if (i == 0) {
+                    // 头信息
+                    header.put((int) j, cellValue);
+                    continue;
+                }
+                String name = header.get((int) j);
+                Arrays.stream(clzz.getDeclaredFields())
+                        .filter(field -> existsExcelAnno(name, field))
+                        .findFirst()
+                        .ifPresent(field -> {
+                            ExcelName annotation = field.getAnnotation(ExcelName.class);
+                            validateValue(integer, cellValue, annotation);
+                            field.setAccessible(true);
+                            try {
+                                invokeValue(clzz, t, beanWrapper, cellValue, field, annotation);
+                            } catch (IllegalAccessException e) {
+                                e.printStackTrace();
+                            }
+                        });
+            }
+            if (i != 0) {
+                // 排除第一行表头数据
+                list.add(t);
+            }
+        }
+    }
+
 
     public static <T> List<T> readExcel(InputStream in, Class<T> clzz) {
         List<T> list = new ArrayList<>();
@@ -266,88 +309,9 @@ public final class ExcelUtils {
             sheets = new XSSFWorkbook(in);
             XSSFSheet sheetAt = sheets.getSheetAt(0);
             if (null == sheetAt) {
-                throw new NotFoundException("未找到对应的excle文件");
+                throw new NotFoundException("未找到对应的sheet文件");
             }
-            short cellNum = sheetAt.getRow(0).getLastCellNum();
-            Map<Integer, String> header = new HashMap<>(9);
-            AtomicInteger integer = new AtomicInteger();
-            for (int i = 0; i <= sheetAt.getLastRowNum(); i++) {
-                XSSFRow row = sheetAt.getRow(i);
-                if (null == row || checkRowIsEmpty(row)) {
-                    break;
-                }
-                integer.incrementAndGet();
-                T t = BeanUtils.instantiateClass(clzz);
-                BeanWrapperImpl beanWrapper = new BeanWrapperImpl(t);
-                for (short j = 0; j < cellNum; j++) {
-                    String cellValue = Optional.ofNullable(row.getCell(j))
-                            .map(xssfCell -> {
-                                CellType cellType = xssfCell.getCellType();
-                                if (cellType == CellType.NUMERIC) {
-                                    //  todo 优化判断是不是日期
-                                    String string = xssfCell.toString();
-                                    if (string.contains("年")) {
-                                        LocalDateTime dateTime = xssfCell.getLocalDateTimeCellValue();
-                                        return dateTime.format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"));
-                                    }
-                                    double numericCellValue = xssfCell.getNumericCellValue();
-                                    BigDecimal bigDecimal = BigDecimal.valueOf(numericCellValue).setScale(0, BigDecimal.ROUND_HALF_UP);
-                                    return bigDecimal.toString();
-                                }
-                                if (cellType == CellType.STRING) {
-                                    return xssfCell.getStringCellValue();
-                                }
-                                return xssfCell.toString();
-                            })
-                            .orElse(null);
-                    if (i == 0) {
-                        // 头信息
-                        header.put((int) j, cellValue);
-                        continue;
-                    }
-                    String name = header.get((int) j);
-                    Arrays.stream(clzz.getDeclaredFields())
-                            .filter(field -> {
-                                ExcelName annotation = field.getAnnotation(ExcelName.class);
-                                if (null == annotation) {
-                                    return false;
-                                } else {
-                                    return annotation.value().equals(name);
-                                }
-                            })
-                            .findFirst()
-                            .ifPresent(field -> {
-                                ExcelName annotation = field.getAnnotation(ExcelName.class);
-                                if (annotation.required() && StringUtils.isEmpty(cellValue)) {
-                                    throw new ParameterException("第" + integer.get() + "行" + annotation.value() + "不能为空");
-                                }
-                                field.setAccessible(true);
-                                try {
-                                    String expression = annotation.deExpression();
-                                    Object eval;
-                                    if (StringUtils.hasText(expression)) {
-                                        Matcher matcher = method_rgex.matcher(expression);
-                                        if (matcher.find()) {
-                                            eval = eval(matcher.group(1), field.getName(), cellValue, clzz);
-                                        } else {
-                                            eval = eval(expression, field.getName(), cellValue);
-                                        }
-                                    } else {
-                                        eval = beanWrapper.convertForProperty(cellValue, field.getName());
-                                    }
-                                    if (eval != null && !"".equals(eval)) {
-                                        field.set(t, eval);
-                                    }
-                                } catch (IllegalAccessException e) {
-                                    e.printStackTrace();
-                                }
-                            });
-                }
-                if (i != 0) {
-                    // 排除第一行表头数据
-                    list.add(t);
-                }
-            }
+            convertSheet(sheetAt, clzz, list);
         } catch (IOException e) {
             e.printStackTrace();
         } finally {
@@ -361,6 +325,59 @@ public final class ExcelUtils {
             }
         }
         return list;
+    }
+
+    private static <T> void invokeValue(Class<T> clzz, T t, BeanWrapperImpl beanWrapper, String cellValue, Field field, ExcelName annotation) throws IllegalAccessException {
+        String expression = annotation.deExpression();
+        Object eval;
+        if (StringUtils.hasText(expression)) {
+            Matcher matcher = method_rgex.matcher(expression);
+            if (matcher.find()) {
+                eval = eval(matcher.group(1), field.getName(), cellValue, clzz);
+            } else {
+                eval = eval(expression, field.getName(), cellValue);
+            }
+        } else {
+            eval = beanWrapper.convertForProperty(cellValue, field.getName());
+        }
+        if (eval != null && !"".equals(eval)) {
+            field.set(t, eval);
+        }
+    }
+
+    private static void validateValue(AtomicInteger integer, String cellValue, ExcelName annotation) {
+        if (annotation.required() && StringUtils.isEmpty(cellValue)) {
+            throw new ParameterException("第" + integer.get() + "行" + annotation.value() + "不能为空");
+        }
+        if (annotation.validLen() > -1) {
+            Optional.ofNullable(cellValue)
+                    .map(s -> {
+                        if (s.length() > annotation.validLen()) {
+                            throw new ParameterException("第" + integer.get() + "行" + annotation.value() + "字符超过" + annotation.validLen() + "的最大限制");
+                        }
+                        return true;
+                    })
+                    .orElseThrow(() -> new ParameterException("第" + integer.get() + "行" + annotation.value() + "不能为空!"));
+        }
+    }
+
+    private static String getCellValue(XSSFCell xssfCell) {
+        CellType cellType = xssfCell.getCellType();
+        if (cellType == CellType.NUMERIC) {
+            //  todo 优化判断是不是日期
+            String string = xssfCell.toString();
+            if (string.contains("年")) {
+                LocalDateTime dateTime = xssfCell.getLocalDateTimeCellValue();
+                return dateTime.format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"));
+            }
+            double numericCellValue = xssfCell.getNumericCellValue();
+            BigDecimal bigDecimal = BigDecimal.valueOf(numericCellValue).setScale(0, BigDecimal.ROUND_HALF_UP);
+            return bigDecimal.toString();
+        }
+        if (cellType == CellType.STRING) {
+            return xssfCell.getStringCellValue();
+        }
+        return xssfCell.toString();
     }
 
     private static boolean checkRowIsEmpty(XSSFRow row) {
@@ -397,89 +414,10 @@ public final class ExcelUtils {
             sheets = new XSSFWorkbook(in);
             for (int k = 0; k < sheets.getNumberOfSheets(); k++) {
                 XSSFSheet sheetAt = sheets.getSheetAt(k);
-                if (null == sheetAt) {
-                    throw new NotFoundException("未找到对应的excle文件");
+                if (Objects.isNull(sheetAt)) {
+                    continue;
                 }
-                short cellNum = sheetAt.getRow(0).getLastCellNum();
-                Map<Integer, String> header = new HashMap<>(9);
-                AtomicInteger integer = new AtomicInteger();
-                for (int i = 0; i <= sheetAt.getLastRowNum(); i++) {
-                    XSSFRow row = sheetAt.getRow(i);
-                    if (null == row) {
-                        break;
-                    }
-                    integer.incrementAndGet();
-                    T t = BeanUtils.instantiateClass(clzz);
-                    BeanWrapperImpl beanWrapper = new BeanWrapperImpl(t);
-                    for (short j = 0; j < cellNum; j++) {
-                        String cellValue = Optional.ofNullable(row.getCell(j))
-                                .map(xssfCell -> {
-                                    CellType cellType = xssfCell.getCellType();
-                                    if (cellType == CellType.NUMERIC) {
-                                        // 判断是不是日期
-                                        String string = xssfCell.toString();
-                                        if (string.contains("年")) {
-                                            LocalDateTime dateTime = xssfCell.getLocalDateTimeCellValue();
-                                            return dateTime.format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"));
-                                        }
-                                        double numericCellValue = xssfCell.getNumericCellValue();
-                                        BigDecimal bigDecimal = BigDecimal.valueOf(numericCellValue).setScale(0, BigDecimal.ROUND_HALF_UP);
-                                        return bigDecimal.toString();
-                                    }
-                                    if (cellType == CellType.STRING) {
-                                        return xssfCell.getStringCellValue();
-                                    }
-                                    return xssfCell.toString();
-                                })
-                                .orElse(null);
-                        if (i == 0) {
-                            // 头信息
-                            header.put((int) j, cellValue);
-                            continue;
-                        }
-                        String name = header.get((int) j);
-                        Arrays.stream(clzz.getDeclaredFields())
-                                .filter(field -> {
-                                    ExcelName annotation = field.getAnnotation(ExcelName.class);
-                                    if (null == annotation) {
-                                        return false;
-                                    } else {
-                                        return annotation.value().equals(name);
-                                    }
-                                })
-                                .findFirst()
-                                .ifPresent(field -> {
-                                    ExcelName annotation = field.getAnnotation(ExcelName.class);
-                                    if (annotation.required() && StringUtils.isEmpty(cellValue)) {
-                                        throw new ParameterException("第" + integer.get() + "行" + annotation.value() + "不能为空");
-                                    }
-                                    field.setAccessible(true);
-                                    try {
-                                        String expression = annotation.deExpression();
-                                        Object eval;
-                                        if (StringUtils.hasText(expression)) {
-                                            Matcher matcher = method_rgex.matcher(expression);
-                                            if (matcher.find()) {
-                                                eval = eval(matcher.group(1), field.getName(), cellValue, clzz);
-                                            } else {
-                                                eval = eval(expression, field.getName(), cellValue);
-                                            }
-                                        } else {
-                                            eval = beanWrapper.convertForProperty(cellValue, field.getName());
-                                        }
-                                        if (eval != null && !"".equals(eval)) {
-                                            field.set(t, eval);
-                                        }
-                                    } catch (IllegalAccessException e) {
-                                        e.printStackTrace();
-                                    }
-                                });
-                    }
-                    if (i != 0) {
-                        // 排除第一行表头数据
-                        list.add(t);
-                    }
-                }
+                convertSheet(sheetAt, clzz, list);
             }
         } catch (IOException e) {
             e.printStackTrace();
@@ -494,5 +432,14 @@ public final class ExcelUtils {
             }
         }
         return list;
+    }
+
+    private static boolean existsExcelAnno(String name, Field field) {
+        ExcelName annotation = field.getAnnotation(ExcelName.class);
+        if (null == annotation) {
+            return false;
+        } else {
+            return annotation.value().equals(name);
+        }
     }
 }
