@@ -4,6 +4,7 @@ import com.jay.lee.excel.entity.Other;
 import com.jay.lee.excel.entity.User;
 import com.jay.lee.excel.util.ExcelUtils;
 import com.jay.lee.excel.util.JsonUtils;
+import io.swagger.annotations.Api;
 import io.swagger.annotations.ApiOperation;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
@@ -20,6 +21,7 @@ import java.util.List;
  * @Author: tomato
  * @Date: 2020/12/19 17:08
  */
+@Api
 @RestController
 @RequestMapping
 public class ExcelController {
