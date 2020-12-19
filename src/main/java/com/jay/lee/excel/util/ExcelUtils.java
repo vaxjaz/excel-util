@@ -101,10 +101,9 @@ public final class ExcelUtils {
         Cell cell;
         for (Class<?> clss = clzz; clss != Object.class; clss = clss.getSuperclass()) {
             Field[] fields = clss.getDeclaredFields();
-            for (int i = 0; i < fields.length; i++) {
-                Field field = fields[i];
+            for (Field field : fields) {
                 ExcelName annotation = field.getAnnotation(ExcelName.class);
-                if (null != annotation) {
+                if (Objects.nonNull(annotation)) {
                     cell = row.createCell(columnIndex);
                     ++columnIndex;
                     try {
@@ -286,7 +285,6 @@ public final class ExcelUtils {
                         .ifPresent(field -> {
                             ExcelName annotation = field.getAnnotation(ExcelName.class);
                             validateValue(integer, cellValue, annotation);
-                            field.setAccessible(true);
                             try {
                                 invokeValue(clzz, t, beanWrapper, cellValue, field, annotation);
                             } catch (IllegalAccessException e) {
@@ -341,6 +339,7 @@ public final class ExcelUtils {
             eval = beanWrapper.convertForProperty(cellValue, field.getName());
         }
         if (eval != null && !"".equals(eval)) {
+            field.setAccessible(true);
             field.set(t, eval);
         }
     }
