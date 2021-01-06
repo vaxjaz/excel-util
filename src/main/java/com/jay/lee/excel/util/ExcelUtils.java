@@ -115,7 +115,7 @@ public final class ExcelUtils {
                         if (StringUtils.hasText(expression)) {
                             Matcher matcher = method_regex.matcher(expression);
                             if (matcher.find()) {
-                                invoke = eval(matcher.group(1), fieldName, invoke, clzz);
+                                invoke = eval(matcher.group(1), fieldName, invoke, o);
                             } else {
                                 invoke = eval(expression, fieldName, invoke);
                             }
@@ -196,17 +196,11 @@ public final class ExcelUtils {
     }
 
 
-    private static Object eval(String expression, String name, Object value, Class<?> clzz) {
+    private static Object eval(String expression, String name, Object value, Object object) {
         JexlEngine jexl = new JexlEngine();
         Expression e = jexl.createExpression(expression);
         JexlContext jc = new MapContext();
-        Object o = null;
-        try {
-            o = clzz.newInstance();
-        } catch (InstantiationException | IllegalAccessException e1) {
-            e1.printStackTrace();
-        }
-        jc.set("this", o);
+        jc.set("this", object);
         jc.set(name, value);
         return e.evaluate(jc);
     }
