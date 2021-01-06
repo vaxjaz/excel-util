@@ -48,7 +48,7 @@ public final class ExcelUtils {
     private ExcelUtils() {
     }
 
-    private static final Pattern method_regex = Pattern.compile("^method\\{this\\.\\w+?\\(\\w*\\)\\}$");
+    private static final Pattern method_regex = Pattern.compile("^method\\{(this\\.\\w+?\\(\\w*\\))\\}$");
 
 
     public static void buildMultiSheet(HttpServletResponse response, String name, List<? extends Object>... list) {
