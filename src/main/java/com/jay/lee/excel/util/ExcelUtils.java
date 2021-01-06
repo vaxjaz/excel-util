@@ -48,7 +48,7 @@ public final class ExcelUtils {
     private ExcelUtils() {
     }
 
-    private static final Pattern method_rgex = Pattern.compile("^method\\{(.*?)}");
+    private static final Pattern method_regex = Pattern.compile("^method\\{this\\.\\w+?\\(\\w*\\)\\}$");
 
 
     public static void buildMultiSheet(HttpServletResponse response, String name, List<? extends Object>... list) {
@@ -113,7 +113,7 @@ public final class ExcelUtils {
                         Object invoke = readMethod.invoke(o);
                         String expression = annotation.expression();
                         if (StringUtils.hasText(expression)) {
-                            Matcher matcher = method_rgex.matcher(expression);
+                            Matcher matcher = method_regex.matcher(expression);
                             if (matcher.find()) {
                                 invoke = eval(matcher.group(1), fieldName, invoke, clzz);
                             } else {
@@ -329,7 +329,7 @@ public final class ExcelUtils {
         String expression = annotation.deExpression();
         Object eval;
         if (StringUtils.hasText(expression)) {
-            Matcher matcher = method_rgex.matcher(expression);
+            Matcher matcher = method_regex.matcher(expression);
             if (matcher.find()) {
                 eval = eval(matcher.group(1), field.getName(), cellValue, clzz);
             } else {
