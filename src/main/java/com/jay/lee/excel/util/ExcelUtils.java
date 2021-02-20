@@ -25,6 +25,7 @@ import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 import java.beans.IntrospectionException;
 import java.beans.PropertyDescriptor;
+import java.beans.PropertyEditorSupport;
 import java.io.IOException;
 import java.io.InputStream;
 import java.lang.reflect.Field;
@@ -33,6 +34,9 @@ import java.lang.reflect.Method;
 import java.math.BigDecimal;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
+import java.text.ParseException;
+import java.text.SimpleDateFormat;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.*;
@@ -121,10 +125,7 @@ public final class ExcelUtils {
                             }
                         }
                         if (null != invoke) {
-                            if (invoke instanceof LocalDateTime) {
-                                invoke = ((LocalDateTime) invoke).format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"));
-                            }
-                            cell.setCellValue(invoke.toString());
+                            cell.setCellValue(data2String(invoke));
                         } else {
                             cell.setCellValue("");
                         }
@@ -134,6 +135,55 @@ public final class ExcelUtils {
                 }
             }
         }
+    }
+
+    private static String data2String(Object invoke) {
+        if (Objects.isNull(invoke)) {
+            return null;
+        }
+        if (invoke instanceof LocalDateTime) {
+            invoke = ((LocalDateTime) invoke).format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"));
+        }
+        if (invoke instanceof LocalDate) {
+            invoke = ((LocalDate) invoke).format(DateTimeFormatter.ofPattern("yyyy-MM-dd"));
+        }
+        if (invoke instanceof Date) {
+            SimpleDateFormat simpleDateFormat = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
+            invoke = simpleDateFormat.format(invoke);
+        }
+        return invoke.toString();
+    }
+
+    private static void registerCustomEditor(BeanWrapperImpl beanWrapper) {
+        beanWrapper.registerCustomEditor(LocalDateTime.class, new PropertyEditorSupport() {
+            @Override
+            public void setAsText(String text) throws IllegalArgumentException {
+                if (!StringUtils.isEmpty(text)) {
+                    this.setValue(LocalDateTime.parse(text, DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss")));
+                }
+            }
+        });
+        beanWrapper.registerCustomEditor(LocalDate.class, new PropertyEditorSupport() {
+            @Override
+            public void setAsText(String text) throws IllegalArgumentException {
+                if (!StringUtils.isEmpty(text)) {
+                    this.setValue(LocalDate.parse(text, DateTimeFormatter.ofPattern("yyyy-MM-dd")));
+                }
+            }
+        });
+        beanWrapper.registerCustomEditor(Date.class, new PropertyEditorSupport() {
+            @Override
+            public void setAsText(String text) throws IllegalArgumentException {
+                if (!StringUtils.isEmpty(text)) {
+                    SimpleDateFormat dateFormat = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
+                    try {
+                        this.setValue(dateFormat.parse(text));
+                    } catch (ParseException e) {
+                        e.printStackTrace();
+                    }
+                }
+            }
+        });
     }
 
 

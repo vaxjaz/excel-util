@@ -6,6 +6,7 @@ import com.jay.lee.excel.util.ExcelUtils;
 import com.jay.lee.excel.util.JsonUtils;
 import io.swagger.annotations.Api;
 import io.swagger.annotations.ApiOperation;
+import org.springframework.stereotype.Controller;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -23,7 +24,7 @@ import java.util.List;
  */
 @Api
 @RestController
-@RequestMapping
+@RequestMapping("/excel")
 public class ExcelController {
 
     @ApiOperation("导出")

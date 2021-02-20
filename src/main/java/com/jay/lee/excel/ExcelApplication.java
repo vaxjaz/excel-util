@@ -7,7 +7,6 @@ import springfox.documentation.swagger2.annotations.EnableSwagger2;
 
 @SpringBootApplication
 @EnableSwagger2
-@ComponentScan(basePackages = {"com.jay.lee.excel.config"})
 public class ExcelApplication {
 
     public static void main(String[] args) {
