@@ -34,5 +34,19 @@ public @interface ExcelName {
      */
     String deExpression() default "";
 
+    /**
+     * 数字保留几位小数
+     *
+     * @return
+     */
+    int numberScale() default 0;
+
+    /**
+     * 排序
+     *
+     * @return
+     */
+    int order() default -1;
+
 
 }
