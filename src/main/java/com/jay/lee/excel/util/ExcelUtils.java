@@ -415,7 +415,7 @@ public final class ExcelUtils {
         if (StringUtils.hasText(expression)) {
             Matcher matcher = method_regex.matcher(expression);
             if (matcher.find()) {
-                eval = eval(matcher.group(1), field.getName(), cellValue, clzz);
+                eval = eval(matcher.group(1), field.getName(), cellValue, t);
             } else {
                 eval = eval(expression, field.getName(), cellValue);
             }

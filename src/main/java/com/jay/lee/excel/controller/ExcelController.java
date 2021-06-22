@@ -40,8 +40,8 @@ public class ExcelController {
                 .state(0)
                 .build();
         list.add(jay);
-//        ExcelUtils.export(list,response,User.class,"测试");
-        ExcelUtils.buildMultiSheet(response, "test", Arrays.asList(new User()), Arrays.asList(new Other()));
+        ExcelUtils.export(list,response,User.class,"测试");
+//        ExcelUtils.buildMultiSheet(response, "test", Arrays.asList(new User()), Arrays.asList(new Other()));
     }
 
     @PostMapping("/upload")
