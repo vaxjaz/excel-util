@@ -12,8 +12,19 @@ public @interface ExcelName {
 
     String value() default "";
 
+    /**
+     * 是否必填 true 必填项
+     *
+     * @return
+     */
     boolean required() default false;
 
+    /**
+     * 长度校验
+     * -1 不校验
+     *
+     * @return
+     */
     int validLen() default -1;
 
     /**
