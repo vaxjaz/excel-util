@@ -453,9 +453,8 @@ public final class ExcelUtils {
                 LocalDateTime dateTime = xssfCell.getLocalDateTimeCellValue();
                 return dateTime.format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"));
             }
-            double numericCellValue = xssfCell.getNumericCellValue();
-            BigDecimal bigDecimal = BigDecimal.valueOf(numericCellValue).setScale(0, BigDecimal.ROUND_HALF_UP);
-            return bigDecimal.toString();
+            Double numericCellValue = xssfCell.getNumericCellValue();
+            return numericCellValue.toString();
         }
         if (cellType == CellType.STRING) {
             return xssfCell.getStringCellValue();
